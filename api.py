@@ -1,0 +1,1 @@
+LINK = "https://catfact.ninja/fact"
