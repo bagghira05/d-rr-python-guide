@@ -1,4 +1,5 @@
 import pygame, sys, settings
+import button
 from random import randint
 from pygame import Vector2
 
@@ -7,11 +8,16 @@ DOWN = Vector2(0,1)
 LEFT = Vector2(-1,0)
 RIGHT = Vector2(1,0)
 
+enable_crunch_sound = True
+# Game state
+game_paused:bool = False
+menu_state = "main"
+game_over_state = False
 
 class SNAKE:
 	def __init__(self):
 		self.body = [Vector2(5,10), Vector2(4,10), Vector2(3,10)]
-		self.direction = Vector2(0,0)
+		self.direction = Vector2(1,0)
 		self.new_block = False
 		# Snake Sprite Imports + Sound
 		self.head_up = pygame.image.load(settings.SPRITE_DIR/"head_up.png").convert_alpha()
@@ -89,7 +95,7 @@ class SNAKE:
 		self.crunch_sound.play()
 	def reset(self):
 		self.body = [Vector2(5,10), Vector2(4,10), Vector2(3,10)]
-		self.direction = Vector2(0,0)
+		self.direction = Vector2(1,0)
 
 
 class FRUIT:
@@ -109,6 +115,7 @@ class MAIN:
 	def __init__(self):
 		self.snake = SNAKE()
 		self.fruit = FRUIT()
+		self.game_over_state:bool = False
 	def update(self):
 		self.snake.move_snake()
 		self.check_collision()
@@ -122,7 +129,8 @@ class MAIN:
 		if self.fruit.pos == self.snake.body[0]:
 			self.fruit.randomize()
 			self.snake.add_block()
-			self.snake.play_crunch_sound()
+			if enable_crunch_sound:
+				self.snake.play_crunch_sound()
 		for block in self.snake.body[1:]:
 			if block == self.fruit.pos:
 				self.fruit.randomize()
@@ -147,7 +155,7 @@ class MAIN:
 						pygame.draw.rect(screen,grass_color,grass_rect)
 	def game_over(self):
 		self.snake.reset()
-		self.fruit.randomize()
+		self.game_over_state = True
 	def draw_score(self):
 		score_text = str(len(self.snake.body) - 3)
 		score_surface = game_font.render(f"x{score_text}",True,(56,74,12))
@@ -156,7 +164,6 @@ class MAIN:
 		score_rect = score_surface.get_rect(center = (score_x,score_y))
 		apple_rect = apple.get_rect(midright = (score_rect.left,score_rect.centery))
 		bg_rect = pygame.Rect(apple_rect.left,apple_rect.top,apple_rect.width + score_rect.width + 6,apple_rect.height)
-
 		pygame.draw.rect(screen,(167,209,61),bg_rect)
 		screen.blit(score_surface,score_rect)
 		screen.blit(apple,apple_rect)
@@ -164,13 +171,32 @@ class MAIN:
 
 pygame.mixer.pre_init(44100,-16,2,512)
 pygame.init()
-pygame.display.set_caption("Snake Game", "Snake Game")
+pygame.display.set_caption("Snake Game")
 cell_size = 40
 cell_number = 20
-screen = pygame.display.set_mode((cell_number * cell_size, cell_number * cell_size))
+screen = pygame.display.set_mode((cell_number*cell_size,cell_number*cell_size))
 clock = pygame.time.Clock()
 apple = pygame.image.load(settings.SPRITE_DIR / "apple.png").convert_alpha()
 game_font = pygame.font.Font(settings.FONT_DIR / "BAHNSCHRIFT.TTF", 25)
+#Button Imgs
+resume_img = pygame.image.load(settings.SPRITE_DIR/"buttons"/"button_resume.png").convert_alpha()
+options_img = pygame.image.load(settings.SPRITE_DIR/"buttons"/"button_options.png").convert_alpha()
+quit_img = pygame.image.load(settings.SPRITE_DIR/"buttons"/"button_quit.png").convert_alpha()
+back_img = pygame.image.load(settings.SPRITE_DIR/"buttons"/"button_back.png").convert_alpha()
+keys_img = pygame.image.load(settings.SPRITE_DIR/"buttons"/"button_keys.png").convert_alpha()
+audio_img = pygame.image.load(settings.SPRITE_DIR/"buttons"/"button_audio.png").convert_alpha()
+video_img = pygame.image.load(settings.SPRITE_DIR/"buttons"/"button_video.png").convert_alpha()
+reset_img = pygame.image.load(settings.SPRITE_DIR/"buttons"/"button_reset.png").convert_alpha()
+#Buttons
+resume_button = button.Button(304, 125, resume_img, 1)
+options_button = button.Button(304, 225, options_img, 1)
+quit_button = button.Button(304, 325, quit_img, 1)
+quit_button_2 = button.Button(304, 525, quit_img, 1)
+reset_button = button.Button(304, 425, reset_img, 1)
+back_button = button.Button(304, 425, back_img, 1)
+keys_button = button.Button(304, 225, keys_img, 1)
+audio_button = button.Button(304, 325, audio_img, 1)
+video_button = button.Button(304, 125, video_img, 1)
 
 SCREEN_UPDATE = pygame.USEREVENT
 pygame.time.set_timer(SCREEN_UPDATE, 150)
@@ -183,8 +209,11 @@ while True:
 			pygame.quit()
 			sys.exit()
 		if event.type == SCREEN_UPDATE:
-			main_game.update()
+			if not game_paused:
+				main_game.update()
 		if event.type == pygame.KEYDOWN:
+			if event.key == pygame.K_ESCAPE:
+				game_paused ^= True
 			if event.key == pygame.K_UP:
 				if main_game.snake.direction.y != 1:
 					main_game.snake.direction = UP
@@ -199,6 +228,32 @@ while True:
 					main_game.snake.direction = RIGHT
 
 	screen.fill((175,215,70))
-	main_game.draw_elements()
+	if main_game.game_over_state == True:
+		if reset_button.draw(screen):
+			print("reset Game")
+		if quit_button_2.draw(screen):
+			pygame.quit()
+			sys.exit()
+	elif game_paused == True:
+		screen.fill((52,87,91))
+		if menu_state == "main":
+			if resume_button.draw(screen):
+				game_paused = False
+			elif options_button.draw(screen):
+				menu_state = "options"
+			elif quit_button.draw(screen):
+				pygame.quit()
+				sys.exit()
+		elif menu_state == "options":
+			if back_button.draw(screen):
+				menu_state = "main"
+			elif keys_button.draw(screen):
+				pass
+			elif audio_button.draw(screen):
+				pass
+			elif video_button.draw(screen):
+				pass
+	else:	
+		main_game.draw_elements()
 	pygame.display.update()
 	clock.tick(60)
